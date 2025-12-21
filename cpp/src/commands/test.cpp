@@ -26,6 +26,7 @@ int run_tests(const Config& config, const std::string& pattern) {
 
     std::vector<std::string> node_args;
     node_args.push_back("--experimental-strip-types");
+    node_args.push_back("--experimental-default-type=module");
     node_args.push_back("--test");
 
     for (const auto& file : test_files) {

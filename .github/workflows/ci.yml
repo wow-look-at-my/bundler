@@ -20,34 +20,35 @@ jobs:
 
       - run: npm ci
 
+      - name: Build ts0
+        run: node --experimental-strip-types src/cli.ts build
+
+      - name: Link ts0 globally
+        run: npm link
+
       - name: Test init command
         run: |
           mkdir -p /tmp/test-project
           cd /tmp/test-project
-          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts init
+          ts0 init
 
       - name: Test build command
         run: |
           cd /tmp/test-project
-          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts build
+          ts0 build
 
-      - name: Test run command (with build)
+      - name: Test run command
         run: |
           cd /tmp/test-project
-          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts run
-
-      - name: Test run command (no build)
-        run: |
-          cd /tmp/test-project
-          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts run --no-build
+          ts0 run
 
       - name: Test test command
         run: |
           cd /tmp/test-project
-          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts test
+          ts0 test
 
       - name: Test sample project
         run: |
           cd samples
-          node --experimental-strip-types ../src/cli.ts build
-          node --experimental-strip-types ../src/cli.ts test
+          ts0 build
+          ts0 test

@@ -37,8 +37,8 @@ async function main() {
   const args = process.argv.slice(2);
   const command = args[0];
 
-  const hasFlag = (name: string, short?: string) =>
-    args.includes(`--${name}`) || (short && args.includes(`-${short}`));
+  const hasFlag = (name: string, short?: string): boolean =>
+    args.includes(`--${name}`) || (short ? args.includes(`-${short}`) : false);
 
   const getPositional = (index: number) => {
     const filtered = args.slice(1).filter((a) => !a.startsWith("-"));

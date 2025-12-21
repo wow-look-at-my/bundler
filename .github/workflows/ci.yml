@@ -27,28 +27,26 @@ jobs:
         run: npm link
 
       - name: Test init command
+        working-directory: /tmp
         run: |
-          mkdir -p /tmp/test-project
-          cd /tmp/test-project
+          mkdir -p test-project
+          cd test-project
           ts0 init
 
       - name: Test build command
-        run: |
-          cd /tmp/test-project
-          ts0 build
+        working-directory: /tmp/test-project
+        run: ts0 build
 
       - name: Test run command
-        run: |
-          cd /tmp/test-project
-          ts0 run
+        working-directory: /tmp/test-project
+        run: ts0 run
 
       - name: Test test command
-        run: |
-          cd /tmp/test-project
-          ts0 test
+        working-directory: /tmp/test-project
+        run: ts0 test
 
       - name: Test sample project
+        working-directory: samples
         run: |
-          cd samples
           ts0 build
           ts0 test

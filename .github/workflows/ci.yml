@@ -12,21 +12,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - uses: PazerOP/actions/tab-check-action@v1
+
+      - uses: actions/setup-dotnet@v4
         with:
-          node-version: "22"
-          cache: "npm"
+          dotnet-version: "10.0.x"
 
-      - run: npm ci
+      - name: Restore dependencies
+        run: dotnet restore
 
-      - name: Build ts0
-        run: node --experimental-strip-types src/cli.ts build
+      - name: Build AOT binary
+        run: dotnet publish -c Release -r linux-x64
 
-      - name: Upload build artifact
+      - name: Upload .NET binary
         uses: actions/upload-artifact@v4
         with:
-          name: ts0
-          path: dist/ts0
+          name: ts0-linux-x64
+          path: bin/Release/net10.0/linux-x64/publish/ts0
 
   test:
     needs: build
@@ -37,18 +39,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-
-      - run: npm ci
 
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: ts0
-          path: dist
+          name: ts0-linux-x64
+          path: .
 
-      - name: Link ts0 globally
-        run: npm link
+      - run: chmod +x ts0 && sudo mv ts0 /usr/local/bin/
 
       - name: Test init command
         working-directory: /tmp
@@ -72,5 +70,6 @@ jobs:
       - name: Test basic sample
         working-directory: samples/basic
         run: |
+          npm install
           ts0 build
           ts0 test

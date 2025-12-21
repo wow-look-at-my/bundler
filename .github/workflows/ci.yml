@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Build ts0
+        run: node --experimental-strip-types src/cli.ts build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts0
+          path: dist/ts0
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ts0
+          path: dist
+
+      - name: Link ts0 globally
+        run: npm link
+
+      - name: Test init command
+        working-directory: /tmp
+        run: |
+          mkdir test-project
+          cd test-project
+          ts0 init
+
+      - name: Test build command
+        working-directory: /tmp/test-project
+        run: ts0 build
+
+      - name: Test run command
+        working-directory: /tmp/test-project
+        run: ts0 run
+
+      - name: Test test command
+        working-directory: /tmp/test-project
+        run: ts0 test
+
+      - name: Test basic sample
+        working-directory: samples/basic
+        run: |
+          ts0 build
+          ts0 test

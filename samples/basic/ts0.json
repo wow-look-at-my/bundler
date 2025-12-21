@@ -1,0 +1,7 @@
+{
+	"entry": "src/main.ts",
+	"outdir": "dist",
+	"target": "node",
+	"format": "esm",
+	"strict": true
+}

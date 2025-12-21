@@ -1,0 +1,27 @@
+{
+	"name": "ts0",
+	"version": "0.1.0",
+	"description": "Simple TypeScript framework with good defaults",
+	"type": "module",
+	"bin": {
+		"ts0": "./dist/ts0"
+	},
+	"scripts": {
+		"build": "node --experimental-strip-types src/cli.ts build",
+		"prepublishOnly": "npm run build"
+	},
+	"files": [
+		"dist/ts0"
+	],
+	"dependencies": {
+		"esbuild": "^0.24.0",
+		"typescript": "^5.7.0"
+	},
+	"devDependencies": {
+		"@types/node": "^22.0.0"
+	},
+	"engines": {
+		"node": ">=22.0.0"
+	},
+	"license": "MIT"
+}

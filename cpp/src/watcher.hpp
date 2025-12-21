@@ -39,8 +39,10 @@ public:
 private:
     void run_loop();
 
+#ifdef __linux__
     int inotify_fd_;
     std::map<int, std::filesystem::path> watch_descriptors_;
+#endif
     std::map<std::filesystem::path, WatchCallback> callbacks_;
     std::string glob_pattern_;
     std::filesystem::path glob_base_;

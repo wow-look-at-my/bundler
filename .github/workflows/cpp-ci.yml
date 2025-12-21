@@ -13,7 +13,7 @@ on:
       - '.github/workflows/cpp-ci.yml'
 
 jobs:
-  build:
+  build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,8 +51,72 @@ jobs:
           name: ts0-cpp-linux-x64
           path: cpp/build/ts0
 
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        working-directory: cpp
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        working-directory: cpp
+        run: cmake --build build -j$(sysctl -n hw.ncpu)
+
+      - name: Show binary info
+        working-directory: cpp/build
+        run: |
+          echo "Binary info:"
+          file ts0
+          echo ""
+          echo "Size:"
+          ls -lh ts0
+          echo ""
+          echo "Dependencies:"
+          otool -L ts0
+
+      - name: Test --help
+        working-directory: cpp/build
+        run: ./ts0 --help
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts0-cpp-macos-x64
+          path: cpp/build/ts0
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        working-directory: cpp
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        working-directory: cpp
+        run: cmake --build build --config Release
+
+      - name: Show binary info
+        working-directory: cpp/build/Release
+        run: |
+          echo "Size:"
+          dir ts0.exe
+
+      - name: Test --help
+        working-directory: cpp/build/Release
+        run: ./ts0.exe --help
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ts0-cpp-windows-x64
+          path: cpp/build/Release/ts0.exe
+
   test-alpine:
-    needs: build
+    needs: build-linux
     runs-on: ubuntu-latest
     container:
       image: alpine:latest
@@ -101,7 +165,7 @@ jobs:
         run: ts0 test
 
   test-debian:
-    needs: build
+    needs: build-linux
     runs-on: ubuntu-latest
     container:
       image: debian:bookworm-slim

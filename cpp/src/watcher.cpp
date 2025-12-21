@@ -1,14 +1,21 @@
 #include "watcher.hpp"
 #include "glob.hpp"
+#include <iostream>
+#include <algorithm>
+
+#ifdef __linux__
 #include <sys/inotify.h>
 #include <unistd.h>
 #include <poll.h>
 #include <cstring>
-#include <iostream>
+#endif
 
 namespace fs = std::filesystem;
 
 namespace ts0 {
+
+#ifdef __linux__
+// Linux implementation using inotify
 
 FileWatcher::FileWatcher() : inotify_fd_(-1), running_(false) {
     inotify_fd_ = inotify_init1(IN_NONBLOCK);
@@ -33,7 +40,6 @@ void FileWatcher::watch(const fs::path& path, const WatchCallback& callback) {
     uint32_t mask = IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM;
 
     if (fs::is_directory(abs_path)) {
-        // Watch the directory
         int wd = inotify_add_watch(inotify_fd_, abs_path.c_str(), mask);
         if (wd == -1) {
             throw std::runtime_error("Failed to add watch for: " + abs_path.string());
@@ -41,7 +47,6 @@ void FileWatcher::watch(const fs::path& path, const WatchCallback& callback) {
         watch_descriptors_[wd] = abs_path;
         callbacks_[abs_path] = callback;
 
-        // Also watch subdirectories
         std::error_code ec;
         for (const auto& entry : fs::recursive_directory_iterator(abs_path, fs::directory_options::skip_permission_denied, ec)) {
             if (entry.is_directory()) {
@@ -52,7 +57,6 @@ void FileWatcher::watch(const fs::path& path, const WatchCallback& callback) {
             }
         }
     } else {
-        // Watch the parent directory for changes to this file
         fs::path parent = abs_path.parent_path();
         int wd = inotify_add_watch(inotify_fd_, parent.c_str(), mask);
         if (wd == -1) {
@@ -68,14 +72,12 @@ void FileWatcher::watch_glob(const std::string& pattern, const fs::path& base_di
     glob_base_ = fs::absolute(base_dir);
     glob_callback_ = callback;
 
-    // Watch the base directory
     uint32_t mask = IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM;
     int wd = inotify_add_watch(inotify_fd_, glob_base_.c_str(), mask);
     if (wd != -1) {
         watch_descriptors_[wd] = glob_base_;
     }
 
-    // Watch all subdirectories
     std::error_code ec;
     for (const auto& entry : fs::recursive_directory_iterator(glob_base_, fs::directory_options::skip_permission_denied, ec)) {
         if (entry.is_directory()) {
@@ -108,7 +110,7 @@ void FileWatcher::run_loop() {
 
     while (running_.load()) {
         struct pollfd pfd = {inotify_fd_, POLLIN, 0};
-        int poll_result = poll(&pfd, 1, 100); // 100ms timeout
+        int poll_result = poll(&pfd, 1, 100);
 
         if (poll_result < 0) {
             if (errno == EINTR) continue;
@@ -143,7 +145,6 @@ void FileWatcher::run_loop() {
 
                     WatchEvent watch_event{event_type, file_path};
 
-                    // Check if this file matches a glob pattern
                     if (glob_callback_) {
                         std::error_code ec;
                         fs::path relative = fs::relative(file_path, glob_base_, ec);
@@ -157,19 +158,16 @@ void FileWatcher::run_loop() {
                         }
                     }
 
-                    // Check specific file callbacks
                     auto cb_it = callbacks_.find(file_path);
                     if (cb_it != callbacks_.end()) {
                         cb_it->second(watch_event);
                     }
 
-                    // Check directory callbacks
                     cb_it = callbacks_.find(it->second);
                     if (cb_it != callbacks_.end()) {
                         cb_it->second(watch_event);
                     }
 
-                    // If a new directory was created, watch it too
                     if ((event->mask & IN_CREATE) && (event->mask & IN_ISDIR)) {
                         uint32_t mask = IN_MODIFY | IN_CREATE | IN_DELETE | IN_MOVED_TO | IN_MOVED_FROM;
                         int new_wd = inotify_add_watch(inotify_fd_, file_path.c_str(), mask);
@@ -184,5 +182,39 @@ void FileWatcher::run_loop() {
         }
     }
 }
+
+#else
+// Stub implementation for non-Linux platforms (macOS, Windows)
+
+FileWatcher::FileWatcher() : running_(false) {}
+
+FileWatcher::~FileWatcher() {
+    stop();
+}
+
+void FileWatcher::watch(const fs::path&, const WatchCallback&) {
+    std::cerr << "Warning: Watch mode is not supported on this platform.\n";
+}
+
+void FileWatcher::watch_glob(const std::string&, const fs::path&, const WatchCallback&) {
+    std::cerr << "Warning: Watch mode is not supported on this platform.\n";
+}
+
+void FileWatcher::start() {
+    // No-op on unsupported platforms
+}
+
+void FileWatcher::stop() {
+    running_.store(false);
+    if (watch_thread_.joinable()) {
+        watch_thread_.join();
+    }
+}
+
+void FileWatcher::run_loop() {
+    // No-op on unsupported platforms
+}
+
+#endif
 
 } // namespace ts0

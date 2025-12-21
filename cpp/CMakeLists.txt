@@ -5,15 +5,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Static linking configuration
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-set(BUILD_SHARED_LIBS OFF)
-
-# Optimization flags for release
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG -flto")
-set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto -s")
-
 # Source files
 set(SOURCES
     src/main.cpp
@@ -35,13 +26,24 @@ add_executable(ts0 ${SOURCES})
 # Include directories
 target_include_directories(ts0 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Link statically with pthread (needed for std::thread)
-find_package(Threads REQUIRED)
-target_link_libraries(ts0 PRIVATE Threads::Threads)
-
-# For static linking on Linux
-if(UNIX AND NOT APPLE)
-    target_link_options(ts0 PRIVATE -static-libgcc -static-libstdc++)
+# Platform-specific configuration
+if(WIN32)
+    # Windows: Use static runtime
+    set_property(TARGET ts0 PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    target_compile_definitions(ts0 PRIVATE _CRT_SECURE_NO_WARNINGS NOMINMAX WIN32_LEAN_AND_MEAN)
+    # Optimization for release
+    target_compile_options(ts0 PRIVATE $<$<CONFIG:Release>:/O2 /GL>)
+    target_link_options(ts0 PRIVATE $<$<CONFIG:Release>:/LTCG>)
+elseif(APPLE)
+    # macOS: Can't fully static link, but optimize
+    target_compile_options(ts0 PRIVATE $<$<CONFIG:Release>:-O3 -flto>)
+    target_link_options(ts0 PRIVATE $<$<CONFIG:Release>:-flto>)
+else()
+    # Linux: Full static linking
+    target_compile_options(ts0 PRIVATE $<$<CONFIG:Release>:-O3 -flto>)
+    target_link_options(ts0 PRIVATE -static -static-libgcc -static-libstdc++ $<$<CONFIG:Release>:-flto -s>)
+    find_package(Threads REQUIRED)
+    target_link_libraries(ts0 PRIVATE Threads::Threads)
 endif()
 
 # Installation

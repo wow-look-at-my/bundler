@@ -39,7 +39,7 @@ jobs:
       - name: Strip binary
         run: |
           cd cpp
-          ./cosmocc/bin/cosmostrip build/ts0.com
+          ./cosmocc/bin/x86_64-unknown-cosmo-strip build/ts0.com || strip build/ts0.com || true
 
       - name: Show binary info
         run: |

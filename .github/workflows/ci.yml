@@ -25,8 +25,8 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: ts0
+          path: dist/ts0
 
   test:
     needs: build
@@ -44,8 +44,8 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: ts0
+          path: dist
 
       - name: Link ts0 globally
         run: npm link

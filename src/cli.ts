@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { build, typecheck } from "./commands/build.ts";
 import { run } from "./commands/run.ts";
 import { test } from "./commands/test.ts";

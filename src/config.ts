@@ -2,11 +2,12 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 
 export interface Ts0Config {
-  // Entry point(s) - auto-detected if not specified
-  entry?: string | string[];
+  // Entry point - auto-detected if not specified
+  entry?: string;
 
-  // Output directory
-  outdir: string;
+  // Output file (single bundled executable) or directory
+  outfile?: string;
+  outdir?: string;
 
   // Target runtime
   target: "node" | "browser";

@@ -15,37 +15,33 @@ export interface RunOptions {
 export async function run(options: RunOptions = {}): Promise<void> {
   const { config, rootDir } = loadConfig();
 
-  let fileToRun: string;
-
   if (options.file) {
     // Run specific file
-    fileToRun = join(rootDir, options.file);
+    const fileToRun = join(rootDir, options.file);
 
     if (options.noBuild) {
-      // Use Node's experimental strip-types for direct .ts execution
       await runWithNode(fileToRun, options.args || [], true);
     } else {
-      // Build to temp location and run
       const result = await build();
       if (!result.success) {
         console.error("Build failed:");
         result.errors.forEach((e) => console.error(`  ${e}`));
         process.exit(1);
       }
-      const outFile = join(rootDir, config.outdir, basename(options.file).replace(/\.ts$/, ".js"));
+      // For specific files with outfile config, still need outdir
+      const outdir = config.outdir || "dist";
+      const outFile = join(rootDir, outdir, basename(options.file).replace(/\.ts$/, ".js"));
       await runWithNode(outFile, options.args || [], false);
     }
   } else {
     // Run entry point
-    const entry = Array.isArray(config.entry) ? config.entry[0] : config.entry;
-
-    if (!entry) {
+    if (!config.entry) {
       console.error("No entry point found. Specify one in ts0.json or pass a file.");
       process.exit(1);
     }
 
     if (options.noBuild) {
-      fileToRun = join(rootDir, entry);
+      const fileToRun = join(rootDir, config.entry);
       await runWithNode(fileToRun, options.args || [], true);
     } else {
       const result = await build();
@@ -54,7 +50,10 @@ export async function run(options: RunOptions = {}): Promise<void> {
         result.errors.forEach((e) => console.error(`  ${e}`));
         process.exit(1);
       }
-      fileToRun = join(rootDir, config.outdir, basename(entry).replace(/\.ts$/, ".js"));
+      // Use outfile if specified, otherwise derive from outdir
+      const fileToRun = config.outfile
+        ? join(rootDir, config.outfile)
+        : join(rootDir, config.outdir || "dist", basename(config.entry).replace(/\.ts$/, ".js"));
       await runWithNode(fileToRun, options.args || [], false);
     }
   }

@@ -4,14 +4,14 @@
   "description": "Simple TypeScript framework with good defaults",
   "type": "module",
   "bin": {
-    "ts0": "./dist/cli.js"
+    "ts0": "./dist/ts0"
   },
   "scripts": {
     "build": "node --experimental-strip-types src/cli.ts build",
     "prepublishOnly": "npm run build"
   },
   "files": [
-    "dist"
+    "dist/ts0"
   ],
   "dependencies": {
     "esbuild": "^0.24.0"

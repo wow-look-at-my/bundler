@@ -13,21 +13,32 @@ export async function build(options?: { watch?: boolean }): Promise<BuildResult>
   const startTime = performance.now();
   const { config, rootDir } = loadConfig();
 
-  const entryPoints = Array.isArray(config.entry)
-    ? config.entry
-    : config.entry
-      ? [config.entry]
-      : [];
+  if (!config.entry) {
+    return {
+      success: false,
+      outputFiles: [],
+      errors: ["No entry point specified"],
+      duration: performance.now() - startTime,
+    };
+  }
 
   const esbuildConfig: esbuild.BuildOptions = {
-    entryPoints: entryPoints.map((e) => join(rootDir, e)),
-    outdir: join(rootDir, config.outdir),
+    entryPoints: [join(rootDir, config.entry)],
     bundle: true,
     platform: config.target === "node" ? "node" : "browser",
     format: config.format,
     minify: config.minify,
     sourcemap: config.sourcemap,
     target: "esnext",
+    // Single file output with shebang, or directory output
+    ...(config.outfile
+      ? {
+          outfile: join(rootDir, config.outfile),
+          banner: { js: "#!/usr/bin/env node" },
+        }
+      : {
+          outdir: join(rootDir, config.outdir || "dist"),
+        }),
     // Node-specific settings
     ...(config.target === "node" && {
       packages: "external",

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-import { build, typecheck } from "./build.ts";
-import { run } from "./run.ts";
-import { test } from "./test.ts";
-import { init } from "./init.ts";
+import { build, typecheck } from "./commands/build.ts";
+import { run } from "./commands/run.ts";
+import { test } from "./commands/test.ts";
+import { init } from "./commands/init.ts";
 
 const HELP = `
 ts0 - Simple TypeScript framework

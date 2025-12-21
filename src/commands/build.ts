@@ -1,6 +1,6 @@
 import * as esbuild from "esbuild";
 import { join } from "node:path";
-import { loadConfig, type Ts0Config } from "./config.ts";
+import { loadConfig, type Ts0Config } from "../config.ts";
 
 export interface BuildResult {
   success: boolean;

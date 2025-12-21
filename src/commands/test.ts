@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { glob } from "node:fs/promises";
 import { join } from "node:path";
-import { loadConfig } from "./config.ts";
+import { loadConfig } from "../config.ts";
 
 export interface TestOptions {
   pattern?: string;

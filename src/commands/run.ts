@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { join, basename } from "node:path";
-import { loadConfig } from "./config.ts";
+import { loadConfig } from "../config.ts";
 import { build } from "./build.ts";
 
 export interface RunOptions {

@@ -1,12 +1,10 @@
 import { spawn } from "node:child_process";
+import { glob } from "node:fs/promises";
 import { join } from "node:path";
 import { loadConfig } from "./config.ts";
-import { glob } from "./glob.ts";
 
 export interface TestOptions {
-  // Specific test file or pattern
   pattern?: string;
-  // Watch mode
   watch?: boolean;
 }
 
@@ -16,7 +14,10 @@ export async function test(options: TestOptions = {}): Promise<void> {
   const pattern = options.pattern || config.test.pattern;
 
   // Find test files
-  const testFiles = await glob(pattern, rootDir);
+  const testFiles: string[] = [];
+  for await (const file of glob(pattern, { cwd: rootDir, exclude: (name) => name === "node_modules" })) {
+    testFiles.push(file);
+  }
 
   if (testFiles.length === 0) {
     console.log(`No test files found matching: ${pattern}`);

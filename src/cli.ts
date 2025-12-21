@@ -13,10 +13,9 @@ Usage:
 
 Commands:
   init              Create ts0.json and sample files
-  build             Build the project
+  build             Type-check and build the project
   run [file]        Build and run (or run specific file)
   test [pattern]    Run tests
-  check             Type-check the project
 
 Options:
   --watch, -w       Watch mode (build, test)
@@ -26,13 +25,12 @@ Options:
 
 Examples:
   ts0 init          # Initialize a new project
-  ts0 build         # Build the project
+  ts0 build         # Type-check and build
   ts0 run           # Build and run entry point
   ts0 run src/app.ts      # Run specific file
   ts0 run --no-build      # Run without building (fast dev)
   ts0 test          # Run all tests
   ts0 test --watch  # Run tests in watch mode
-  ts0 check         # Type-check without emitting
 `;
 
 async function main() {
@@ -59,6 +57,13 @@ async function main() {
     }
 
     case "build": {
+      console.log("Type-checking...");
+      const checkResult = await typecheck();
+      if (!checkResult.success) {
+        console.error(checkResult.output);
+        process.exit(1);
+      }
+
       console.log("Building...");
       const result = await build({ watch: hasFlag("watch", "w") });
 
@@ -90,16 +95,6 @@ async function main() {
         pattern,
         watch: hasFlag("watch", "w"),
       });
-      break;
-    }
-
-    case "check": {
-      console.log("Type-checking...");
-      const result = await typecheck();
-      console.log(result.output);
-      if (!result.success) {
-        process.exit(1);
-      }
       break;
     }
 

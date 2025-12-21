@@ -45,8 +45,8 @@ jobs:
         working-directory: /tmp/test-project
         run: ts0 test
 
-      - name: Test sample project
-        working-directory: samples
+      - name: Test basic sample
+        working-directory: samples/basic
         run: |
           ts0 build
           ts0 test

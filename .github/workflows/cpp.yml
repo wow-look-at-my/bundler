@@ -31,20 +31,34 @@ jobs:
           ./cosmocc/bin/cosmoc++ \
             -std=c++20 \
             -Os \
-            -static \
             -I src \
             -o build/ts0.com \
             $(find src -name '*.cpp')
 
-      - name: Strip binary
-        run: |
-          cd cpp
-          ./cosmocc/bin/x86_64-unknown-cosmo-strip build/ts0.com || strip build/ts0.com || true
+          # Show binary info before any stripping
+          ls -lh build/ts0.com
+          file build/ts0.com
+
+          # APE binaries need special handling - copy before strip attempt
+          cp build/ts0.com build/ts0.com.backup
+
+          # Try cosmopolitan's objcopy for size reduction (safer than strip)
+          ./cosmocc/bin/x86_64-unknown-cosmo-objcopy -S build/ts0.com || true
+
+          # If strip broke it, restore backup
+          if ! ./build/ts0.com --help > /dev/null 2>&1; then
+            echo "Strip broke binary, restoring backup"
+            mv build/ts0.com.backup build/ts0.com
+          else
+            rm -f build/ts0.com.backup
+          fi
 
       - name: Show binary info
         run: |
           ls -lh cpp/build/ts0.com
           file cpp/build/ts0.com
+          # Test that it actually runs on Linux
+          cpp/build/ts0.com --help
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

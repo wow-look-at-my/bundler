@@ -31,7 +31,6 @@ int run(
         // Use experimental-strip-types for .ts files
         if (file_path.extension() == ".ts") {
             node_args.push_back("--experimental-strip-types");
-            node_args.push_back("--experimental-default-type=module");
         }
 
         node_args.push_back(file_path.string());

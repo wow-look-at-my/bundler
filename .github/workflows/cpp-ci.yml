@@ -85,6 +85,7 @@ jobs:
         working-directory: /tmp/test-project
         run: |
           npm init -y
+          npm pkg set type=module
           npm install esbuild typescript @types/node
 
       - name: Test build command
@@ -136,6 +137,7 @@ jobs:
         working-directory: /tmp/test-project
         run: |
           npm init -y
+          npm pkg set type=module
           npm install esbuild typescript @types/node
 
       - name: Test build command

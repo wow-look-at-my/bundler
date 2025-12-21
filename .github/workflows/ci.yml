@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - run: npm ci
+
+      - name: Test init command
+        run: |
+          mkdir -p /tmp/test-project
+          cd /tmp/test-project
+          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts init
+
+      - name: Test build command
+        run: |
+          cd /tmp/test-project
+          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts build
+
+      - name: Test run command (with build)
+        run: |
+          cd /tmp/test-project
+          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts run
+
+      - name: Test run command (no build)
+        run: |
+          cd /tmp/test-project
+          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts run --no-build
+
+      - name: Test test command
+        run: |
+          cd /tmp/test-project
+          node --experimental-strip-types ${{ github.workspace }}/src/cli.ts test
+
+      - name: Test sample project
+        run: |
+          cd samples
+          node --experimental-strip-types ../src/cli.ts build
+          node --experimental-strip-types ../src/cli.ts test

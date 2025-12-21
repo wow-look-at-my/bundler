@@ -101,15 +101,20 @@ export async function typecheck(): Promise<{ success: boolean; output: string }>
 	};
 
 	const { execSync } = await import("node:child_process");
+	const { createRequire } = await import("node:module");
+
+	// Find tsc from ts0's dependencies, not the project's
+	const require = createRequire(import.meta.url);
+	const tscPath = require.resolve("typescript/bin/tsc");
 
 	try {
 		// Write temporary tsconfig
 		const { writeFileSync, unlinkSync } = await import("node:fs");
 		const tempTsconfig = join(rootDir, ".ts0-tsconfig.json");
-		writeFileSync(tempTsconfig, JSON.stringify(tsconfigContent, null, 2));
+		writeFileSync(tempTsconfig, JSON.stringify(tsconfigContent, null, "\t"));
 
 		try {
-			const output = execSync(`npx tsc --project ${tempTsconfig}`, {
+			const output = execSync(`node ${tscPath} --project ${tempTsconfig}`, {
 				cwd: rootDir,
 				encoding: "utf-8",
 				stdio: ["pipe", "pipe", "pipe"],

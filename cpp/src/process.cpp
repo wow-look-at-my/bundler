@@ -13,6 +13,38 @@ namespace fs = std::filesystem;
 
 namespace ts0 {
 
+namespace {
+
+// Resolve command, checking node_modules/.bin first
+std::string resolve_command(const std::string& command, const std::optional<fs::path>& working_dir) {
+    // If it's already an absolute path, use it directly
+    if (command.starts_with("/")) {
+        return command;
+    }
+
+    // Check node_modules/.bin in the working directory
+    fs::path base = working_dir.value_or(fs::current_path());
+    fs::path node_bin = base / "node_modules" / ".bin" / command;
+    if (fs::exists(node_bin) && access(node_bin.c_str(), X_OK) == 0) {
+        return node_bin.string();
+    }
+
+    // Walk up directory tree looking for node_modules/.bin
+    fs::path current = base;
+    while (current.has_parent_path() && current != current.parent_path()) {
+        node_bin = current / "node_modules" / ".bin" / command;
+        if (fs::exists(node_bin) && access(node_bin.c_str(), X_OK) == 0) {
+            return node_bin.string();
+        }
+        current = current.parent_path();
+    }
+
+    // Fall back to PATH lookup (execvp will handle this)
+    return command;
+}
+
+} // anonymous namespace
+
 ProcessResult Process::run(
     const std::string& command,
     const std::vector<std::string>& args,
@@ -21,9 +53,12 @@ ProcessResult Process::run(
 ) {
     ProcessResult result{0, "", ""};
 
+    // Resolve command (check node_modules/.bin first)
+    std::string resolved_cmd = resolve_command(command, working_dir);
+
     // Build the command line
     std::vector<char*> argv;
-    argv.push_back(const_cast<char*>(command.c_str()));
+    argv.push_back(const_cast<char*>(resolved_cmd.c_str()));
     for (const auto& arg : args) {
         argv.push_back(const_cast<char*>(arg.c_str()));
     }
@@ -69,7 +104,7 @@ ProcessResult Process::run(
             close(stderr_pipe[1]);
         }
 
-        execvp(command.c_str(), argv.data());
+        execvp(resolved_cmd.c_str(), argv.data());
         _exit(127);
     }
 
@@ -112,8 +147,11 @@ int Process::spawn(
     const std::vector<std::string>& args,
     const std::optional<fs::path>& working_dir
 ) {
+    // Resolve command (check node_modules/.bin first)
+    std::string resolved_cmd = resolve_command(command, working_dir);
+
     std::vector<char*> argv;
-    argv.push_back(const_cast<char*>(command.c_str()));
+    argv.push_back(const_cast<char*>(resolved_cmd.c_str()));
     for (const auto& arg : args) {
         argv.push_back(const_cast<char*>(arg.c_str()));
     }
@@ -133,7 +171,7 @@ int Process::spawn(
             }
         }
 
-        execvp(command.c_str(), argv.data());
+        execvp(resolved_cmd.c_str(), argv.data());
         _exit(127);
     }
 

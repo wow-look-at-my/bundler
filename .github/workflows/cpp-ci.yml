@@ -85,7 +85,7 @@ jobs:
         working-directory: /tmp/test-project
         run: |
           npm init -y
-          npm install esbuild
+          npm install esbuild typescript @types/node
 
       - name: Test build command
         working-directory: /tmp/test-project
@@ -136,7 +136,7 @@ jobs:
         working-directory: /tmp/test-project
         run: |
           npm init -y
-          npm install esbuild typescript
+          npm install esbuild typescript @types/node
 
       - name: Test build command
         working-directory: /tmp/test-project
@@ -145,3 +145,7 @@ jobs:
       - name: Test run command
         working-directory: /tmp/test-project
         run: ts0 run
+
+      - name: Test test command
+        working-directory: /tmp/test-project
+        run: ts0 test

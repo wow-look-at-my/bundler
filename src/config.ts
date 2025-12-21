@@ -2,109 +2,109 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 
 export interface Ts0Config {
-  // Entry point - auto-detected if not specified
-  entry?: string;
+	// Entry point - auto-detected if not specified
+	entry?: string;
 
-  // Output file (single bundled executable) or directory
-  outfile?: string;
-  outdir?: string;
+	// Output file (single bundled executable) or directory
+	outfile?: string;
+	outdir?: string;
 
-  // Target runtime
-  target: "node" | "browser";
+	// Target runtime
+	target: "node" | "browser";
 
-  // Module format
-  format: "esm" | "cjs";
+	// Module format
+	format: "esm" | "cjs";
 
-  // TypeScript strictness
-  strict: boolean;
+	// TypeScript strictness
+	strict: boolean;
 
-  // Minify output
-  minify: boolean;
+	// Minify output
+	minify: boolean;
 
-  // Generate sourcemaps
-  sourcemap: boolean;
+	// Generate sourcemaps
+	sourcemap: boolean;
 
-  // Test configuration
-  test: {
-    pattern: string;
-  };
+	// Test configuration
+	test: {
+		pattern: string;
+	};
 
-  // Additional esbuild options (escape hatch)
-  esbuild?: Record<string, unknown>;
+	// Additional esbuild options (escape hatch)
+	esbuild?: Record<string, unknown>;
 }
 
 const DEFAULT_CONFIG: Ts0Config = {
-  outdir: "dist",
-  target: "node",
-  format: "esm",
-  strict: true,
-  minify: false,
-  sourcemap: true,
-  test: {
-    pattern: "**/*.test.ts",
-  },
+	outdir: "dist",
+	target: "node",
+	format: "esm",
+	strict: true,
+	minify: false,
+	sourcemap: true,
+	test: {
+		pattern: "**/*.test.ts",
+	},
 };
 
 export function findConfigFile(startDir: string = process.cwd()): string | null {
-  let dir = startDir;
-  while (dir !== dirname(dir)) {
-    const configPath = join(dir, "ts0.json");
-    if (existsSync(configPath)) {
-      return configPath;
-    }
-    dir = dirname(dir);
-  }
-  return null;
+	let dir = startDir;
+	while (dir !== dirname(dir)) {
+		const configPath = join(dir, "ts0.json");
+		if (existsSync(configPath)) {
+			return configPath;
+		}
+		dir = dirname(dir);
+	}
+	return null;
 }
 
 export function loadConfig(configPath?: string): { config: Ts0Config; rootDir: string } {
-  const foundPath = configPath || findConfigFile();
+	const foundPath = configPath || findConfigFile();
 
-  if (!foundPath || !existsSync(foundPath)) {
-    // No config file - use defaults and auto-detect entry
-    const rootDir = process.cwd();
-    const config = { ...DEFAULT_CONFIG };
-    config.entry = autoDetectEntry(rootDir);
-    return { config, rootDir };
-  }
+	if (!foundPath || !existsSync(foundPath)) {
+		// No config file - use defaults and auto-detect entry
+		const rootDir = process.cwd();
+		const config = { ...DEFAULT_CONFIG };
+		config.entry = autoDetectEntry(rootDir);
+		return { config, rootDir };
+	}
 
-  const rootDir = dirname(foundPath);
-  const userConfig = JSON.parse(readFileSync(foundPath, "utf-8"));
+	const rootDir = dirname(foundPath);
+	const userConfig = JSON.parse(readFileSync(foundPath, "utf-8"));
 
-  const config: Ts0Config = {
-    ...DEFAULT_CONFIG,
-    ...userConfig,
-    test: {
-      ...DEFAULT_CONFIG.test,
-      ...userConfig.test,
-    },
-  };
+	const config: Ts0Config = {
+		...DEFAULT_CONFIG,
+		...userConfig,
+		test: {
+			...DEFAULT_CONFIG.test,
+			...userConfig.test,
+		},
+	};
 
-  // Auto-detect entry if not specified
-  if (!config.entry) {
-    config.entry = autoDetectEntry(rootDir);
-  }
+	// Auto-detect entry if not specified
+	if (!config.entry) {
+		config.entry = autoDetectEntry(rootDir);
+	}
 
-  return { config, rootDir };
+	return { config, rootDir };
 }
 
 function autoDetectEntry(rootDir: string): string {
-  const candidates = [
-    "src/main.ts",
-    "src/index.ts",
-    "main.ts",
-    "index.ts",
-  ];
+	const candidates = [
+		"src/main.ts",
+		"src/index.ts",
+		"main.ts",
+		"index.ts",
+	];
 
-  for (const candidate of candidates) {
-    if (existsSync(join(rootDir, candidate))) {
-      return candidate;
-    }
-  }
+	for (const candidate of candidates) {
+		if (existsSync(join(rootDir, candidate))) {
+			return candidate;
+		}
+	}
 
-  return "src/main.ts"; // Default even if doesn't exist yet
+	return "src/main.ts"; // Default even if doesn't exist yet
 }
 
 export function getDefaultConfig(): Ts0Config {
-  return { ...DEFAULT_CONFIG };
+	return { ...DEFAULT_CONFIG };
 }

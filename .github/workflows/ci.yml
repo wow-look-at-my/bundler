@@ -57,6 +57,12 @@ jobs:
           cd test-project
           ts0 init
 
+      - name: Install dependencies for test project
+        working-directory: /tmp/test-project
+        run: |
+          npm init -y
+          npm install esbuild typescript @types/node
+
       - name: Test build command
         working-directory: /tmp/test-project
         run: ts0 build

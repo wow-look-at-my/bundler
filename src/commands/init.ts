@@ -1,5 +1,6 @@
 import { writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { execSync } from "node:child_process";
+import { join, basename } from "node:path";
 
 const DEFAULT_TS0_CONFIG = {
 	entry: "src/main.ts",
@@ -25,6 +26,17 @@ test("example test", () => {
 	assert.equal(1 + 1, 2);
 });
 `;
+
+function createPackageJson(name: string): object {
+	return {
+		name,
+		version: "0.1.0",
+		type: "module",
+		devDependencies: {
+			"@types/node": "^22.0.0",
+		},
+	};
+}
 
 export async function init(options: { force?: boolean } = {}): Promise<void> {
 	const rootDir = process.cwd();
@@ -58,6 +70,22 @@ export async function init(options: { force?: boolean } = {}): Promise<void> {
 	if (!existsSync(testPath)) {
 		writeFileSync(testPath, SAMPLE_TEST);
 		console.log("Created src/main.test.ts");
+	}
+
+	// Create package.json if doesn't exist
+	const packageJsonPath = join(rootDir, "package.json");
+	if (!existsSync(packageJsonPath)) {
+		const projectName = basename(rootDir);
+		writeFileSync(packageJsonPath, JSON.stringify(createPackageJson(projectName), null, 2) + "\n");
+		console.log("Created package.json");
+
+		// Install dependencies
+		console.log("Installing dependencies...");
+		try {
+			execSync("npm install", { cwd: rootDir, stdio: "inherit" });
+		} catch {
+			console.error("Failed to install dependencies. Run 'npm install' manually.");
+		}
 	}
 
 	console.log("\nReady! Try these commands:");

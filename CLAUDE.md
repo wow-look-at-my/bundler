@@ -19,11 +19,13 @@ src/
     config.ts           # ts0.json loader, defaults, entry auto-detection
     commands/
         init.ts         # scaffolds ts0.json + src/ + package.json
-        build.ts        # tsc --noEmit, then esbuild bundle
+        build.ts        # tsc --noEmit, then esbuild bundle (dispatches HTML)
+        build-html.ts   # bundles an .html entry into a single inlined .html
         run.ts          # build (or strip-types) + node
         test.ts         # node --test on discovered test files
 samples/
-    basic/              # smoke-test sample exercised by CI
+    basic/              # Node-entry smoke-test sample exercised by CI
+    html/               # HTML-entry smoke-test sample exercised by CI
 .github/workflows/ci.yml
 ts0.json                # ts0 builds itself with these settings
 ```
@@ -55,9 +57,11 @@ end-to-end by:
 2. `npm link`ing it.
 3. Running `ts0 init`, `build`, `run`, `test` against a fresh tmp project.
 4. Running `ts0 build` and `ts0 test` against `samples/basic`.
+5. Running `ts0 build` against `samples/html` and asserting the bundled JS/CSS
+    are inlined into a single `dist/index.html`.
 
-If you change CLI behavior, update `samples/basic` and the CI smoke steps so the
-new behavior is covered.
+If you change CLI behavior, update the relevant `samples/*` and CI smoke steps so
+the new behavior is covered.
 
 ## Conventions
 
@@ -93,6 +97,18 @@ defaults plus auto-detected entry. Don't break the no-config-file path.
 is resolved from `ts0`'s own `node_modules` via `createRequire` so the user's
 project doesn't need its own `typescript` install. Preserve both behaviors.
 
+## HTML entries
+
+When `entry` ends with `.html`, `build.ts` delegates to `commands/build-html.ts`.
+That module reads the HTML, finds `<script src="…">` and `<link rel="stylesheet"
+href="…">` references that point at local files, runs `esbuild` on each, and
+inlines the bundled output as `<script>…</script>` / `<style>…</style>`.
+External URLs (`https://`, `//`, `data:`, etc.) are left alone. Tag attributes
+on the script/link (other than `src`/`href`/`rel`/`type`) are preserved.
+
+Keep the HTML parser regex-based and dependency-free &mdash; do not add an HTML
+parser package.
+
 ## Documentation
 
 Per global instructions: when you change project structure, commands, config
@@ -101,7 +117,6 @@ let the docs drift.
 
 ## Git workflow
 
-- Develop on the branch the task specifies (currently
-    `claude/write-readme-docs-8evo2`).
+- Develop on the branch the task specifies.
 - Commit and push frequently; the VM can reset.
 - PRs in this org are squash-merged &mdash; don't rebase or force-push.

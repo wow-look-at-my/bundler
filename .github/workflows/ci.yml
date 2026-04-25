@@ -71,3 +71,22 @@ jobs:
         run: |
           ts0 build
           ts0 test
+
+      - name: Test html sample
+        working-directory: samples/html
+        run: |
+          ts0 build
+          test -f dist/index.html
+          # The bundled output must inline the JS and CSS, with no remaining
+          # local src= or href= references to source files.
+          grep -q '<style' dist/index.html
+          grep -q 'getElementById' dist/index.html
+          ! grep -qE '<script[^>]+src=' dist/index.html
+          ! grep -qE '<link[^>]+rel=["'"'"']stylesheet["'"'"']' dist/index.html
+
+      - name: Upload html sample build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-sample
+          path: samples/html/dist/index.html

@@ -1,6 +1,7 @@
 import * as esbuild from "esbuild";
 import { join } from "node:path";
 import { loadConfig, type Ts0Config } from "../config.ts";
+import { buildHtml, isHtmlEntry } from "./build-html.ts";
 
 export interface BuildResult {
 	success: boolean;
@@ -20,6 +21,10 @@ export async function build(options?: { watch?: boolean }): Promise<BuildResult>
 			errors: ["No entry point specified"],
 			duration: performance.now() - startTime,
 		};
+	}
+
+	if (isHtmlEntry(config.entry)) {
+		return buildHtml(config, rootDir, options);
 	}
 
 	const esbuildConfig: esbuild.BuildOptions = {

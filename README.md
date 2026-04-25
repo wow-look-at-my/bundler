@@ -56,7 +56,8 @@ ts0 build --watch          # rebuild on change
 
 `ts0` reads `ts0.json` from the current directory (or any ancestor). Every field is
 optional &mdash; if there is no config file, `ts0` falls back to sensible defaults and
-auto-detects an entry point from `src/main.ts`, `src/index.ts`, `main.ts`, or `index.ts`.
+auto-detects an entry point from `src/main.ts`, `src/index.ts`, `main.ts`, `index.ts`,
+`index.html`, or `src/index.html`.
 
 ```json
 {
@@ -75,14 +76,14 @@ auto-detects an entry point from `src/main.ts`, `src/index.ts`, `main.ts`, or `i
 
 | Field       | Type                  | Default            | Notes                                                         |
 | ----------- | --------------------- | ------------------ | ------------------------------------------------------------- |
-| `entry`     | `string`              | auto-detected      | Entry point relative to the config file                       |
-| `outfile`   | `string`              | &mdash;            | Single-file output. Adds a `#!/usr/bin/env node` shebang      |
+| `entry`     | `string`              | auto-detected      | Entry point relative to the config file. May be `.ts` or `.html` |
+| `outfile`   | `string`              | &mdash;            | Single-file output. Adds a `#!/usr/bin/env node` shebang for JS |
 | `outdir`    | `string`              | `"dist"`           | Used when `outfile` is not set                                |
-| `target`    | `"node" \| "browser"` | `"node"`           | esbuild platform                                              |
+| `target`    | `"node" \| "browser"` | `"node"`           | esbuild platform (ignored for HTML entries &mdash; always browser) |
 | `format`    | `"esm" \| "cjs"`      | `"esm"`            | Output module format                                          |
 | `strict`    | `boolean`             | `true`             | Toggles TypeScript `strict` mode for the type-check step      |
 | `minify`    | `boolean`             | `false`            | Minify the bundle                                             |
-| `sourcemap` | `boolean`             | `true`             | Emit a sourcemap                                              |
+| `sourcemap` | `boolean`             | `true`             | Emit a sourcemap (inlined for HTML entries)                   |
 | `test.pattern` | `string`           | `"**/*.test.ts"`   | Glob for test files                                           |
 | `esbuild`   | `object`              | &mdash;            | Escape hatch &mdash; merged into the esbuild options last     |
 
@@ -92,6 +93,26 @@ preserving the entry's basename.
 
 For Node targets, `packages: "external"` is set automatically so `node_modules` are not
 bundled into the output.
+
+### HTML entries
+
+If `entry` ends with `.html`, `ts0 build` produces a single self-contained HTML file:
+every `<script src="…">` and `<link rel="stylesheet" href="…">` referencing a local file
+is bundled with esbuild and inlined into the output as `<script>…</script>` or
+`<style>…</style>`. External URLs (`https://…`, `//…`, `data:…`) are left untouched.
+
+```html
+<!-- index.html -->
+<link rel="stylesheet" href="./src/styles.css" />
+<script type="module" src="./src/main.ts"></script>
+```
+
+```sh
+ts0 build      # writes dist/index.html with the .ts and .css inlined
+```
+
+`ts0 run` is for Node entries only; it errors out when the entry is HTML. Open the
+produced `dist/*.html` in a browser instead.
 
 ## How it works
 

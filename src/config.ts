@@ -94,6 +94,8 @@ function autoDetectEntry(rootDir: string): string {
 		"src/index.ts",
 		"main.ts",
 		"index.ts",
+		"index.html",
+		"src/index.html",
 	];
 
 	for (const candidate of candidates) {

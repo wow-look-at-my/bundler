@@ -23,12 +23,17 @@ Options:
 
 Examples:
 	ts0 init					# Initialize a new project
-	ts0 build				 # Type-check and build
+	ts0 build				 # Type-check and build (TS or HTML entry)
 	ts0 run					 # Build and run entry point
 	ts0 run src/app.ts			# Run specific file
 	ts0 run --no-build			# Run without building (fast dev)
 	ts0 test					# Run all tests
 	ts0 test --watch	# Run tests in watch mode
+
+Entry points:
+	*.ts					# Bundled to a single JS file (or directory)
+	*.html					# All <script src> and <link rel=stylesheet>
+								referenced locally are inlined into the output HTML
 `;
 
 async function main() {

@@ -1,0 +1,24 @@
+body {
+	font-family: system-ui, sans-serif;
+	margin: 2rem auto;
+	max-width: 32rem;
+	color: #222;
+}
+
+h1 {
+	color: #0070f3;
+}
+
+button {
+	padding: 0.4rem 0.8rem;
+	border: 1px solid #0070f3;
+	background: white;
+	color: #0070f3;
+	border-radius: 4px;
+	cursor: pointer;
+}
+
+button:hover {
+	background: #0070f3;
+	color: white;
+}

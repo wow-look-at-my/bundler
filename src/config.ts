@@ -29,6 +29,13 @@ export interface Ts0Config {
 		pattern: string;
 	};
 
+	// HTML entries only: embed runtime-fetched assets (shaders, .hdr, .glb,
+	// images, .json, …) into a window.fetch interceptor at the top of
+	// <head>. Default true; set false to skip the interceptor entirely
+	// (e.g. when the bundle will only ever be served from a real origin
+	// where the asset tree is reachable).
+	embedAssets?: boolean;
+
 	// Additional esbuild options (escape hatch)
 	esbuild?: Record<string, unknown>;
 }

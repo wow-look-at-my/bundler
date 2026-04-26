@@ -114,6 +114,15 @@ export async function typecheck(overrides?: BuildOverrides): Promise<{ success: 
 	const { config: loaded, rootDir } = loadConfig();
 	const config = applyOverrides(loaded, overrides);
 
+	// Skip type-checking for HTML entries: an HTML project may have no .ts
+	// files at all (it can be plain JS), and the bundling step delegates to
+	// esbuild's stdin/css loaders which don't honour TypeScript types
+	// anyway. The entry's <script src> targets are still type-checked
+	// transitively if they're .ts files via the bundler.
+	if (isHtmlEntry(config.entry)) {
+		return { success: true, output: "Skipped (HTML entry)." };
+	}
+
 	// Generate a temporary tsconfig based on ts0 config
 	const tsconfigContent = {
 		compilerOptions: {
@@ -127,7 +136,7 @@ export async function typecheck(overrides?: BuildOverrides): Promise<{ success: 
 			allowImportingTsExtensions: true,
 		},
 		include: ["**/*.ts"],
-		exclude: ["node_modules", config.outdir],
+		exclude: ["node_modules", config.outdir].filter(Boolean),
 	};
 
 	const { execSync } = await import("node:child_process");

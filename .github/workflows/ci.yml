@@ -83,6 +83,23 @@ jobs:
           grep -q 'getElementById' dist/index.html
           ! grep -qE '<script[^>]+src=' dist/index.html
           ! grep -qE '<link[^>]+rel=["'"'"']stylesheet["'"'"']' dist/index.html
+          # CSS asset embedding: the body's background-image url() must be
+          # rewritten to a data: URL so the bundle works from disk.
+          grep -q 'data:image/png;base64' dist/index.html
+          # Inline-module bundling: the inline <script type="module"> body
+          # imports ./src/greet.ts; the bundled output must contain the
+          # call site and resolved import.
+          grep -q 'greeting("inline")' dist/index.html
+          # Fetch interceptor injection: presence of the patched fetch and
+          # the embedded shader text, with no leftover __ASSETS_JSON__.
+          grep -q 'window.fetch' dist/index.html
+          grep -q 'embedded by ts0' dist/index.html
+          ! grep -q '__ASSETS_JSON__' dist/index.html
+          # CLI flag overrides: build a different entry to a different
+          # outfile without a ts0.json change.
+          rm -rf dist
+          ts0 build --entry index.html --outfile out/cli-flag.html
+          test -f out/cli-flag.html
 
       - name: Upload html sample build
         if: always()

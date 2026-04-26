@@ -100,14 +100,56 @@ project doesn't need its own `typescript` install. Preserve both behaviors.
 ## HTML entries
 
 When `entry` ends with `.html`, `build.ts` delegates to `commands/build-html.ts`.
-That module reads the HTML, finds `<script src="…">` and `<link rel="stylesheet"
-href="…">` references that point at local files, runs `esbuild` on each, and
-inlines the bundled output as `<script>…</script>` / `<style>…</style>`.
+That module reads the HTML and inlines four classes of dependency:
+
+1. `<script src="local">` &mdash; bundled with esbuild, inlined as `<script>…</script>`.
+2. `<script type="module">…inline body…</script>` &mdash; bundled via esbuild's
+    `stdin` API with `resolveDir` set to the HTML's directory, so relative imports
+    in the inline body work.
+3. `<link rel="stylesheet" href="local">` &mdash; bundled with esbuild, inlined as
+    `<style>…</style>`. The CSS bundling uses a `dataurl` loader for fonts and
+    images so `url(...)` references inside the CSS become `data:` URLs.
+4. Runtime-fetched assets &mdash; files under the entry directory matching a small
+    set of text-asset extensions (`.glsl`, `.wgsl`, `.vert`, `.frag`, `.txt`) and
+    binary-asset extensions (`.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`,
+    `.gif`, `.bin`) are embedded into a `window.fetch` interceptor inserted at the
+    top of `<head>`. The interceptor template lives at
+    `src/runtime/fetch-interceptor.js` &mdash; it has a `__ASSETS_JSON__`
+    placeholder that's replaced at build time. Use `replaceAll` (not `replace`)
+    when substituting; the file's own header comment necessarily mentions the
+    placeholder name.
+
+`.json` is deliberately not in the asset extension list, so `ts0.json` and
+`package.json` aren't picked up. Disable embedding entirely with
+`"embedAssets": false` in `ts0.json`.
+
 External URLs (`https://`, `//`, `data:`, etc.) are left alone. Tag attributes
 on the script/link (other than `src`/`href`/`rel`/`type`) are preserved.
 
 Keep the HTML parser regex-based and dependency-free &mdash; do not add an HTML
 parser package.
+
+### Interceptor template lookup
+
+`build-html.ts` resolves the interceptor template via two candidate paths so
+both running modes work:
+
+- `<__dirname>/../runtime/fetch-interceptor.js` &mdash; running from source
+    (e.g. `node --experimental-strip-types src/cli.ts build`).
+- `<__dirname>/../src/runtime/fetch-interceptor.js` &mdash; running from the
+    bundled `dist/ts0`.
+
+`package.json`'s `"files"` ships both `dist/ts0` and
+`src/runtime/fetch-interceptor.js` so installs from a published tarball or
+git URL find the template.
+
+## Distributing via `npm install github:wow-look-at-my/bundler`
+
+`package.json` has a `prepare` script that runs `npm run build`; npm runs
+`prepare` automatically when installing from a git URL, so `dist/ts0` is built
+on the consumer's machine and `npx ts0 …` works without a separate build step.
+The `"files"` field is irrelevant for git installs but matters for `npm publish`
+&mdash; keep `dist/ts0` and `src/runtime/fetch-interceptor.js` in it.
 
 ## Documentation
 

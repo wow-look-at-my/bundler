@@ -10,9 +10,16 @@ export interface BuildResult {
 	duration: number;
 }
 
-export async function build(options?: { watch?: boolean }): Promise<BuildResult> {
+export interface BuildOverrides {
+	entry?: string;
+	outfile?: string;
+	outdir?: string;
+}
+
+export async function build(options?: { watch?: boolean; overrides?: BuildOverrides }): Promise<BuildResult> {
 	const startTime = performance.now();
-	const { config, rootDir } = loadConfig();
+	const { config: loaded, rootDir } = loadConfig();
+	const config = applyOverrides(loaded, options?.overrides);
 
 	if (!config.entry) {
 		return {
@@ -86,8 +93,35 @@ export async function build(options?: { watch?: boolean }): Promise<BuildResult>
 	}
 }
 
-export async function typecheck(): Promise<{ success: boolean; output: string }> {
-	const { config, rootDir } = loadConfig();
+function applyOverrides(config: Ts0Config, overrides?: BuildOverrides): Ts0Config {
+	if (!overrides) return config;
+	const out: Ts0Config = { ...config };
+	if (overrides.entry !== undefined) out.entry = overrides.entry;
+	if (overrides.outfile !== undefined) {
+		out.outfile = overrides.outfile;
+		// outfile and outdir are mutually exclusive — clearing outdir keeps
+		// the existing precedence in build() (outfile wins) explicit.
+		out.outdir = undefined;
+	}
+	if (overrides.outdir !== undefined) {
+		out.outdir = overrides.outdir;
+		out.outfile = undefined;
+	}
+	return out;
+}
+
+export async function typecheck(overrides?: BuildOverrides): Promise<{ success: boolean; output: string }> {
+	const { config: loaded, rootDir } = loadConfig();
+	const config = applyOverrides(loaded, overrides);
+
+	// Skip type-checking for HTML entries: an HTML project may have no .ts
+	// files at all (it can be plain JS), and the bundling step delegates to
+	// esbuild's stdin/css loaders which don't honour TypeScript types
+	// anyway. The entry's <script src> targets are still type-checked
+	// transitively if they're .ts files via the bundler.
+	if (isHtmlEntry(config.entry)) {
+		return { success: true, output: "Skipped (HTML entry)." };
+	}
 
 	// Generate a temporary tsconfig based on ts0 config
 	const tsconfigContent = {
@@ -102,7 +136,7 @@ export async function typecheck(): Promise<{ success: boolean; output: string }>
 			allowImportingTsExtensions: true,
 		},
 		include: ["**/*.ts"],
-		exclude: ["node_modules", config.outdir],
+		exclude: ["node_modules", config.outdir].filter(Boolean),
 	};
 
 	const { execSync } = await import("node:child_process");

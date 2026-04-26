@@ -1,8 +1,69 @@
 import * as esbuild from "esbuild";
-import { readFileSync, writeFileSync, mkdirSync, watch as fsWatch } from "node:fs";
-import { dirname, resolve, basename, extname } from "node:path";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, watch as fsWatch } from "node:fs";
+import { dirname, resolve, basename, extname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { Ts0Config } from "../config.ts";
 import type { BuildResult } from "./build.ts";
+
+// Loaders applied when bundling CSS, so that url(./fonts/foo.woff2) and
+// url(./img/bar.png) get embedded as data: URLs instead of left as relative
+// paths that 404 in a single-file bundle. esbuild walks the imported CSS
+// graph and rewrites these references in the output.
+const CSS_ASSET_LOADERS: Record<string, esbuild.Loader> = {
+	".css": "css",
+	".woff2": "dataurl",
+	".woff": "dataurl",
+	".ttf": "dataurl",
+	".otf": "dataurl",
+	".eot": "dataurl",
+	".png": "dataurl",
+	".jpg": "dataurl",
+	".jpeg": "dataurl",
+	".gif": "dataurl",
+	".webp": "dataurl",
+	".svg": "dataurl",
+};
+
+// Extensions whose contents we'll embed for the runtime fetch interceptor.
+// Text assets are inlined as JSON strings; binary assets as data: URLs that
+// the browser decodes back into an ArrayBuffer when the interceptor's
+// fall-through fetch hits them.
+//
+// .json is intentionally NOT here: it's a common config-file extension
+// (ts0.json, package.json) and embedding those is never desired. Users
+// fetching runtime JSON should either rename the extension or use
+// esbuild's import-assertion JSON loader from JS code.
+const TEXT_ASSET_EXTS = new Set([".glsl", ".wgsl", ".vert", ".frag", ".txt"]);
+const BINARY_ASSET_EXTS = new Set([".hdr", ".glb", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bin"]);
+
+const MIME_BY_EXT: Record<string, string> = {
+	".png": "image/png",
+	".jpg": "image/jpeg",
+	".jpeg": "image/jpeg",
+	".webp": "image/webp",
+	".gif": "image/gif",
+	".hdr": "application/octet-stream",
+	".glb": "model/gltf-binary",
+	".bin": "application/octet-stream",
+};
+
+// Two candidate locations for the runtime template:
+//   - src/commands/build-html.ts → ../runtime/fetch-interceptor.js (running
+//     from source, via --experimental-strip-types)
+//   - dist/ts0 → ../src/runtime/fetch-interceptor.js (running from the
+//     bundled binary, with the source tree shipped alongside it via the
+//     package.json "files" field)
+const __dirname = dirname(fileURLToPath(import.meta.url));
+function resolveInterceptorPath(): string {
+	const candidates = [
+		resolve(__dirname, "../runtime/fetch-interceptor.js"),
+		resolve(__dirname, "../src/runtime/fetch-interceptor.js"),
+	];
+	for (const p of candidates) if (existsSync(p)) return p;
+	throw new Error(
+		`ts0: fetch-interceptor.js not found. Looked in:\n  ${candidates.join("\n  ")}`,
+	);
+}
 
 export function isHtmlEntry(entry: string | undefined): boolean {
 	return !!entry && entry.toLowerCase().endsWith(".html");
@@ -118,30 +179,48 @@ async function processHtml(
 	const errors: string[] = [];
 	const replacements: Array<{ match: string; replacement: string }> = [];
 
-	// <script ...src="..."...></script> (paired tag with src attr)
+	// <script ...>...</script> — three cases handled below:
+	//   1. <script src="local.js"> — bundle the file at src.
+	//   2. <script type="module">...inline code...</script> — bundle the
+	//      inline body via esbuild stdin so relative imports resolve.
+	//   3. <script src="https://..."> or inline classic <script> — leave
+	//      alone. (Classic inline scripts already work as-is in a bundle.)
 	const scriptRe = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
 	for (const match of html.matchAll(scriptRe)) {
-		const [fullMatch, attrStr] = match;
+		const [fullMatch, attrStr, inlineBody] = match;
 		const attrs = parseAttrs(attrStr);
-		if (!attrs.src) continue;
-		if (isExternal(attrs.src)) continue;
-
-		const filePath = resolve(sourceDir, attrs.src);
 		const isModule = (attrs.type || "").toLowerCase() === "module";
 
+		const buildOpts: esbuild.BuildOptions = {
+			bundle: true,
+			platform: "browser",
+			format: isModule ? "esm" : "iife",
+			minify: config.minify,
+			sourcemap: config.sourcemap ? "inline" : false,
+			target: "esnext",
+			write: false,
+			logLevel: "silent",
+		};
+
+		let entryDescription: string;
+		if (attrs.src) {
+			if (isExternal(attrs.src)) continue;
+			entryDescription = resolve(sourceDir, attrs.src);
+			buildOpts.entryPoints = [entryDescription];
+		} else if (isModule && inlineBody.trim()) {
+			entryDescription = "<inline module>";
+			buildOpts.stdin = {
+				contents: inlineBody,
+				resolveDir: sourceDir,
+				sourcefile: "inline.js",
+				loader: "js",
+			};
+		} else {
+			continue;
+		}
+
 		try {
-			const result = await esbuild.build({
-				entryPoints: [filePath],
-				bundle: true,
-				platform: "browser",
-				format: isModule ? "esm" : "iife",
-				minify: config.minify,
-				sourcemap: config.sourcemap ? "inline" : false,
-				target: "esnext",
-				write: false,
-				logLevel: "silent",
-				...config.esbuild,
-			});
+			const result = await esbuild.build({ ...buildOpts, ...config.esbuild });
 
 			if (result.errors.length > 0) {
 				errors.push(...result.errors.map((e) => formatEsbuildMessage(e)));
@@ -158,7 +237,7 @@ async function processHtml(
 				replacement: `${opening}${escapeForScript(code)}</script>`,
 			});
 		} catch (err) {
-			errors.push(formatBuildError(err, filePath));
+			errors.push(formatBuildError(err, entryDescription));
 		}
 	}
 
@@ -182,7 +261,7 @@ async function processHtml(
 				target: "esnext",
 				write: false,
 				logLevel: "silent",
-				loader: { ".css": "css" },
+				loader: CSS_ASSET_LOADERS,
 				...config.esbuild,
 			});
 
@@ -211,7 +290,69 @@ async function processHtml(
 	for (const { match, replacement } of replacements) {
 		result = result.replace(match, () => replacement);
 	}
+
+	// Inject the runtime fetch interceptor. Off if explicitly disabled, or
+	// if no embeddable assets exist next to the entry — keeps trivial HTML
+	// samples (no shaders, no HDR) byte-identical to pre-feature output.
+	if (config.embedAssets !== false) {
+		const assets = collectAssets(sourceDir);
+		if (Object.keys(assets.text).length || Object.keys(assets.binary).length) {
+			result = injectFetchInterceptor(result, assets);
+		}
+	}
+
 	return { html: result, errors };
+}
+
+interface AssetMap {
+	text: Record<string, string>;
+	binary: Record<string, string>; // value is a data: URL
+}
+
+function collectAssets(sourceDir: string): AssetMap {
+	const text: Record<string, string> = {};
+	const binary: Record<string, string> = {};
+
+	const walk = (dir: string): void => {
+		for (const name of readdirSync(dir)) {
+			if (name.startsWith(".") || name === "node_modules" || name === "dist") continue;
+			const p = join(dir, name);
+			const st = statSync(p);
+			if (st.isDirectory()) {
+				walk(p);
+				continue;
+			}
+			const ext = extname(name).toLowerCase();
+			const rel = relative(sourceDir, p).split(/[\\/]/).join("/");
+			if (TEXT_ASSET_EXTS.has(ext)) {
+				text[rel] = readFileSync(p, "utf-8");
+			} else if (BINARY_ASSET_EXTS.has(ext)) {
+				const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
+				binary[rel] = `data:${mime};base64,${readFileSync(p).toString("base64")}`;
+			}
+		}
+	};
+
+	walk(sourceDir);
+	return { text, binary };
+}
+
+function injectFetchInterceptor(html: string, assets: AssetMap): string {
+	const template = readFileSync(resolveInterceptorPath(), "utf-8");
+	// Defensively escape sequences that could end the host <script> tag if
+	// a shader or other asset ever contained them. JSON's escaped forward
+	// slash is legal everywhere, so this stays valid JS.
+	const payload = JSON.stringify(assets).replace(/<\//g, "<\\/").replace(/<!--/g, "<\\!--");
+	const script = `<script>\n${template.replaceAll("__ASSETS_JSON__", payload)}</script>\n`;
+
+	const headOpen = /<head\b[^>]*>/i.exec(html);
+	if (headOpen) {
+		const insertAt = headOpen.index + headOpen[0].length;
+		return html.slice(0, insertAt) + "\n" + script + html.slice(insertAt);
+	}
+	// No <head>? Prepend at the top so it still installs before any other
+	// script runs.
+	return script + html;
 }
 
 function isExternal(url: string): boolean {

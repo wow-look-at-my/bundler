@@ -18,6 +18,9 @@ Commands:
 Options:
 	--watch, -w			 Watch mode (build, test)
 	--no-build				Skip build step (run)
+	--entry <path>		Override the configured entry (build)
+	--outfile <path>	Override outfile, single-file output (build)
+	--outdir <path>	 Override outdir (build)
 	--force					 Overwrite existing files (init)
 	--help, -h				Show this help
 
@@ -43,8 +46,28 @@ async function main() {
 	const hasFlag = (name: string, short?: string): boolean =>
 		args.includes(`--${name}`) || (short ? args.includes(`-${short}`) : false);
 
+	const getOption = (name: string): string | undefined => {
+		const eq = args.find((a) => a.startsWith(`--${name}=`));
+		if (eq) return eq.slice(name.length + 3);
+		const i = args.indexOf(`--${name}`);
+		if (i >= 0 && i + 1 < args.length && !args[i + 1].startsWith("-")) return args[i + 1];
+		return undefined;
+	};
+
+	// Positional args, skipping option pairs like `--entry foo.html`.
 	const getPositional = (index: number) => {
-		const filtered = args.slice(1).filter((a) => !a.startsWith("-"));
+		const optionsTakingValue = new Set(["entry", "outfile", "outdir"]);
+		const filtered: string[] = [];
+		for (let i = 1; i < args.length; i++) {
+			const a = args[i];
+			if (a.startsWith("--")) {
+				const name = a.slice(2).split("=")[0];
+				if (optionsTakingValue.has(name) && !a.includes("=")) i++;
+				continue;
+			}
+			if (a.startsWith("-")) continue;
+			filtered.push(a);
+		}
 		return filtered[index - 1];
 	};
 
@@ -60,15 +83,21 @@ async function main() {
 		}
 
 		case "build": {
+			const overrides = {
+				entry: getOption("entry"),
+				outfile: getOption("outfile"),
+				outdir: getOption("outdir"),
+			};
+
 			console.log("Type-checking...");
-			const checkResult = await typecheck();
+			const checkResult = await typecheck(overrides);
 			if (!checkResult.success) {
 				console.error(checkResult.output);
 				process.exit(1);
 			}
 
 			console.log("Building...");
-			const result = await build({ watch: hasFlag("watch", "w") });
+			const result = await build({ watch: hasFlag("watch", "w"), overrides });
 
 			if (!hasFlag("watch", "w")) {
 				if (result.success) {

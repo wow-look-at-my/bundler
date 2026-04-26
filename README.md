@@ -39,6 +39,9 @@ ts0 build     # produce a bundled output
 
 - `--watch`, `-w` &mdash; watch mode (`build`, `test`)
 - `--no-build` &mdash; skip the build step and run sources directly via `--experimental-strip-types` (`run`)
+- `--entry <path>` &mdash; override the configured entry for this `build` invocation
+- `--outfile <path>` &mdash; override `outfile`; produces a single file at this path (`build`)
+- `--outdir <path>` &mdash; override `outdir` (`build`)
 - `--force` &mdash; overwrite existing files (`init`)
 - `--help`, `-h` &mdash; show help
 
@@ -85,6 +88,7 @@ auto-detects an entry point from `src/main.ts`, `src/index.ts`, `main.ts`, `inde
 | `minify`    | `boolean`             | `false`            | Minify the bundle                                             |
 | `sourcemap` | `boolean`             | `true`             | Emit a sourcemap (inlined for HTML entries)                   |
 | `test.pattern` | `string`           | `"**/*.test.ts"`   | Glob for test files                                           |
+| `embedAssets` | `boolean`           | `true`             | HTML entries: embed runtime-fetched assets (see below). Set `false` to skip. |
 | `esbuild`   | `object`              | &mdash;            | Escape hatch &mdash; merged into the esbuild options last     |
 
 When `outfile` is set, `ts0` produces a single executable file with a Node shebang &mdash;
@@ -96,23 +100,44 @@ bundled into the output.
 
 ### HTML entries
 
-If `entry` ends with `.html`, `ts0 build` produces a single self-contained HTML file:
-every `<script src="…">` and `<link rel="stylesheet" href="…">` referencing a local file
-is bundled with esbuild and inlined into the output as `<script>…</script>` or
-`<style>…</style>`. External URLs (`https://…`, `//…`, `data:…`) are left untouched.
+If `entry` ends with `.html`, `ts0 build` produces a single self-contained HTML file
+that runs from disk (`file://`) with no asset tree alongside it. Specifically:
+
+- Every `<script src="local">` is bundled with esbuild and inlined as `<script>…</script>`.
+- Every `<script type="module">…inline code…</script>` block is bundled with esbuild
+    (relative imports resolve against the HTML's directory).
+- Every `<link rel="stylesheet" href="local">` is bundled and inlined as `<style>…</style>`.
+    `url(./fonts/x.woff2)` and `url(./img/y.png)` references inside the bundled CSS are
+    rewritten to `data:` URLs.
+- Every fetchable asset (shaders, `.hdr`, `.glb`, images, …) under the entry's
+    directory is collected into a `window.fetch` interceptor inserted at the top of
+    `<head>`, so code like `fetch(new URL("shaders/scene.wgsl", import.meta.url))`
+    keeps resolving in the standalone bundle. Set `"embedAssets": false` to disable.
+- External URLs (`https://`, `//`, `data:`) are left untouched.
 
 ```html
 <!-- index.html -->
 <link rel="stylesheet" href="./src/styles.css" />
 <script type="module" src="./src/main.ts"></script>
+<script type="module">
+    import { ready } from "./src/init.ts"; // bundled via inline-module support
+    ready();
+</script>
 ```
 
 ```sh
-ts0 build      # writes dist/index.html with the .ts and .css inlined
+ts0 build                                  # uses ts0.json
+ts0 build --entry pages/foo/index.html \
+        --outfile out/foo.html                       # one-off override, no config edit
 ```
 
 `ts0 run` is for Node entries only; it errors out when the entry is HTML. Open the
-produced `dist/*.html` in a browser instead.
+produced HTML in a browser instead.
+
+The text/binary asset extension lists are fixed (`.glsl`, `.wgsl`, `.vert`, `.frag`,
+`.txt` for text; `.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bin` for
+binary). `.json` is intentionally excluded so `ts0.json`/`package.json` aren't picked
+up; runtime JSON should be loaded via JS imports instead.
 
 ## How it works
 

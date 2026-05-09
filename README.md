@@ -135,10 +135,10 @@ ts0 build --entry pages/foo/index.html \
 `ts0 run` is for Node entries only; it errors out when the entry is HTML. Open the
 produced HTML in a browser instead.
 
-The text/binary asset extension lists are fixed (`.glsl`, `.wgsl`, `.vert`, `.frag`,
-`.txt`, `.xml` for text; `.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bin`
-for binary). `.json` is intentionally excluded so `ts0.json`/`package.json` aren't picked
-up; runtime JSON should be loaded via JS imports instead.
+The text/binary asset extension lists are defined by `TEXT_ASSET_EXTS` and
+`BINARY_ASSET_EXTS` at the top of `src/commands/build-html.ts`. `.json` is intentionally
+excluded so `ts0.json`/`package.json` aren't picked up; runtime JSON should be loaded
+via JS imports instead.
 
 The fetch interceptor exposes `window.__ts0_embedded_paths__` &mdash; an array of all
 embedded asset keys. Client code can use this to enumerate available assets at runtime

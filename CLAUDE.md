@@ -110,11 +110,11 @@ That module reads the HTML and inlines four classes of dependency:
     `<style>…</style>`. The CSS bundling uses a `dataurl` loader for fonts and
     images so `url(...)` references inside the CSS become `data:` URLs.
 4. Runtime-fetched assets &mdash; files under the entry directory (or directories
-    specified by `assetDirs`) matching a small set of text-asset extensions
-    (`.glsl`, `.wgsl`, `.vert`, `.frag`, `.txt`, `.xml`) and binary-asset
-    extensions (`.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bin`)
-    are embedded into a `window.fetch` interceptor inserted at the top of
-    `<head>`. The interceptor template lives at
+    specified by `assetDirs`) matching the text-asset extensions in
+    `TEXT_ASSET_EXTS` and binary-asset extensions in `BINARY_ASSET_EXTS`
+    (both defined at the top of `src/commands/build-html.ts`) are embedded
+    into a `window.fetch` interceptor inserted at the top of `<head>`. The
+    interceptor template lives at
     `src/runtime/fetch-interceptor.js` &mdash; it has a `__ASSETS_JSON__`
     placeholder that's replaced at build time. Use `replaceAll` (not `replace`)
     when substituting; the file's own header comment necessarily mentions the

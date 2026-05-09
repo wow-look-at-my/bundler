@@ -109,11 +109,12 @@ That module reads the HTML and inlines four classes of dependency:
 3. `<link rel="stylesheet" href="local">` &mdash; bundled with esbuild, inlined as
     `<style>…</style>`. The CSS bundling uses a `dataurl` loader for fonts and
     images so `url(...)` references inside the CSS become `data:` URLs.
-4. Runtime-fetched assets &mdash; files under the entry directory matching a small
-    set of text-asset extensions (`.glsl`, `.wgsl`, `.vert`, `.frag`, `.txt`) and
-    binary-asset extensions (`.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`,
-    `.gif`, `.bin`) are embedded into a `window.fetch` interceptor inserted at the
-    top of `<head>`. The interceptor template lives at
+4. Runtime-fetched assets &mdash; files under the entry directory (or directories
+    specified by `assetDirs`) matching a small set of text-asset extensions
+    (`.glsl`, `.wgsl`, `.vert`, `.frag`, `.txt`, `.xml`) and binary-asset
+    extensions (`.hdr`, `.glb`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bin`)
+    are embedded into a `window.fetch` interceptor inserted at the top of
+    `<head>`. The interceptor template lives at
     `src/runtime/fetch-interceptor.js` &mdash; it has a `__ASSETS_JSON__`
     placeholder that's replaced at build time. Use `replaceAll` (not `replace`)
     when substituting; the file's own header comment necessarily mentions the
@@ -122,6 +123,14 @@ That module reads the HTML and inlines four classes of dependency:
 `.json` is deliberately not in the asset extension list, so `ts0.json` and
 `package.json` aren't picked up. Disable embedding entirely with
 `"embedAssets": false` in `ts0.json`.
+
+When `assetDirs` is set in `ts0.json`, `build-html.ts` scans only those
+directories (relative to rootDir) instead of the HTML entry's directory.
+Asset keys in the interceptor map are relative to rootDir, so
+`"assetDirs": ["people"]` produces keys like `people/foo.xml`. The
+interceptor also exposes `window.__ts0_embedded_paths__` &mdash; an array
+of all embedded asset keys &mdash; so client code can discover available
+assets at runtime.
 
 External URLs (`https://`, `//`, `data:`, etc.) are left alone. Tag attributes
 on the script/link (other than `src`/`href`/`rel`/`type`) are preserved.

@@ -33,7 +33,7 @@ const CSS_ASSET_LOADERS: Record<string, esbuild.Loader> = {
 // (ts0.json, package.json) and embedding those is never desired. Users
 // fetching runtime JSON should either rename the extension or use
 // esbuild's import-assertion JSON loader from JS code.
-const TEXT_ASSET_EXTS = new Set([".glsl", ".wgsl", ".vert", ".frag", ".txt"]);
+const TEXT_ASSET_EXTS = new Set([".glsl", ".wgsl", ".vert", ".frag", ".txt", ".xml"]);
 const BINARY_ASSET_EXTS = new Set([".hdr", ".glb", ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bin"]);
 
 const MIME_BY_EXT: Record<string, string> = {
@@ -94,7 +94,7 @@ export async function buildHtml(
 
 	const buildOnce = async (): Promise<{ errors: string[] }> => {
 		const html = readFileSync(htmlPath, "utf-8");
-		const result = await processHtml(html, htmlSourceDir, config);
+		const result = await processHtml(html, htmlSourceDir, rootDir, config);
 		mkdirSync(dirname(outFile), { recursive: true });
 		writeFileSync(outFile, result.html);
 		return { errors: result.errors };
@@ -174,6 +174,7 @@ interface ProcessResult {
 async function processHtml(
 	html: string,
 	sourceDir: string,
+	rootDir: string,
 	config: Ts0Config,
 ): Promise<ProcessResult> {
 	const errors: string[] = [];
@@ -295,7 +296,9 @@ async function processHtml(
 	// if no embeddable assets exist next to the entry — keeps trivial HTML
 	// samples (no shaders, no HDR) byte-identical to pre-feature output.
 	if (config.embedAssets !== false) {
-		const assets = collectAssets(sourceDir);
+		const assets = config.assetDirs
+			? collectAssetsFromDirs(rootDir, config.assetDirs)
+			: collectAssets(sourceDir);
 		if (Object.keys(assets.text).length || Object.keys(assets.binary).length) {
 			result = injectFetchInterceptor(result, assets);
 		}
@@ -334,6 +337,38 @@ function collectAssets(sourceDir: string): AssetMap {
 	};
 
 	walk(sourceDir);
+	return { text, binary };
+}
+
+function collectAssetsFromDirs(rootDir: string, assetDirs: string[]): AssetMap {
+	const text: Record<string, string> = {};
+	const binary: Record<string, string> = {};
+
+	const walk = (dir: string, baseDir: string): void => {
+		if (!existsSync(dir)) return;
+		for (const name of readdirSync(dir)) {
+			if (name.startsWith(".") || name === "node_modules" || name === "dist") continue;
+			const p = join(dir, name);
+			const st = statSync(p);
+			if (st.isDirectory()) {
+				walk(p, baseDir);
+				continue;
+			}
+			const ext = extname(name).toLowerCase();
+			const rel = relative(baseDir, p).split(/[\\/]/).join("/");
+			if (TEXT_ASSET_EXTS.has(ext)) {
+				text[rel] = readFileSync(p, "utf-8");
+			} else if (BINARY_ASSET_EXTS.has(ext)) {
+				const mime = MIME_BY_EXT[ext] ?? "application/octet-stream";
+				binary[rel] = `data:${mime};base64,${readFileSync(p).toString("base64")}`;
+			}
+		}
+	};
+
+	for (const dir of assetDirs) {
+		walk(resolve(rootDir, dir), rootDir);
+	}
+
 	return { text, binary };
 }
 

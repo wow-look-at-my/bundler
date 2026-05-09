@@ -15,6 +15,7 @@
 // decode into a real ArrayBuffer.
 (function () {
 	const ASSETS = __ASSETS_JSON__;
+	window.__ts0_embedded_paths__ = [].concat(Object.keys(ASSETS.text), Object.keys(ASSETS.binary));
 	const _fetch = window.fetch.bind(window);
 
 	function findKey(pathname) {

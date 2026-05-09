@@ -36,6 +36,13 @@ export interface Ts0Config {
 	// where the asset tree is reachable).
 	embedAssets?: boolean;
 
+	// HTML entries only: directories to scan for embeddable assets, relative
+	// to the config file (rootDir). When set, ONLY these directories are
+	// scanned (instead of the HTML entry's directory). Asset keys in the
+	// fetch interceptor are relative to rootDir, so fetch("people/foo.xml")
+	// matches assetDirs: ["people"].
+	assetDirs?: string[];
+
 	// Additional esbuild options (escape hatch)
 	esbuild?: Record<string, unknown>;
 }

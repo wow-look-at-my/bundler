@@ -36,6 +36,13 @@ export interface Ts0Config {
 	// where the asset tree is reachable).
 	embedAssets?: boolean;
 
+	// HTML entries only: directories to scan for embeddable assets, relative
+	// to the config file (rootDir). When set, ONLY these directories are
+	// scanned (instead of the HTML entry's directory). Asset keys in the
+	// fetch interceptor are relative to rootDir, so fetch("people/foo.xml")
+	// matches assetDirs: ["people"].
+	assetDirs?: string[];
+
 	// Additional esbuild options (escape hatch)
 	esbuild?: Record<string, unknown>;
 }
@@ -86,6 +93,12 @@ export function loadConfig(configPath?: string): { config: Ts0Config; rootDir: s
 			...userConfig.test,
 		},
 	};
+
+	if (config.assetDirs !== undefined) {
+		if (!Array.isArray(config.assetDirs) || !config.assetDirs.every((d: unknown) => typeof d === "string" && d.length > 0)) {
+			throw new Error("ts0: assetDirs must be an array of non-empty strings");
+		}
+	}
 
 	// Auto-detect entry if not specified
 	if (!config.entry) {

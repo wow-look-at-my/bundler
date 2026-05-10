@@ -1,5 +1,5 @@
 import * as esbuild from "esbuild";
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, watch as fsWatch } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, statSync, existsSync, realpathSync, watch as fsWatch } from "node:fs";
 import { dirname, resolve, basename, extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Ts0Config } from "../config.ts";
@@ -343,9 +343,9 @@ function collectAssets(sourceDir: string): AssetMap {
 function collectAssetsFromDirs(rootDir: string, assetDirs: string[]): AssetMap {
 	const text: Record<string, string> = {};
 	const binary: Record<string, string> = {};
+	const realRoot = realpathSync(rootDir);
 
 	const walk = (dir: string, baseDir: string): void => {
-		if (!existsSync(dir)) return;
 		for (const name of readdirSync(dir)) {
 			if (name.startsWith(".") || name === "node_modules" || name === "dist") continue;
 			const p = join(dir, name);
@@ -366,7 +366,15 @@ function collectAssetsFromDirs(rootDir: string, assetDirs: string[]): AssetMap {
 	};
 
 	for (const dir of assetDirs) {
-		walk(resolve(rootDir, dir), rootDir);
+		const resolved = resolve(rootDir, dir);
+		const real = realpathSync(resolved);
+		if (!real.startsWith(realRoot + "/") && real !== realRoot) {
+			throw new Error(`ts0: assetDirs entry "${dir}" resolves outside the project root`);
+		}
+		if (!existsSync(resolved) || !statSync(resolved).isDirectory()) {
+			throw new Error(`ts0: assetDirs entry "${dir}" is not a directory`);
+		}
+		walk(resolved, rootDir);
 	}
 
 	return { text, binary };

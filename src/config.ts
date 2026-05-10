@@ -94,6 +94,12 @@ export function loadConfig(configPath?: string): { config: Ts0Config; rootDir: s
 		},
 	};
 
+	if (config.assetDirs !== undefined) {
+		if (!Array.isArray(config.assetDirs) || !config.assetDirs.every((d: unknown) => typeof d === "string" && d.length > 0)) {
+			throw new Error("ts0: assetDirs must be an array of non-empty strings");
+		}
+	}
+
 	// Auto-detect entry if not specified
 	if (!config.entry) {
 		config.entry = autoDetectEntry(rootDir);
